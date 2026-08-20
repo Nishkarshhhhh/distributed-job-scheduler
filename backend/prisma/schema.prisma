@@ -1,0 +1,109 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum JobType {
+  CRON
+  ONE_TIME
+}
+
+enum JobStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum JobRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  RETRYING
+  CANCELLED
+}
+
+enum BackoffType {
+  FIXED
+  EXPONENTIAL
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(USER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  jobs Job[]
+
+  @@map("users")
+}
+
+model Job {
+  id             String      @id @default(uuid())
+  name           String
+  description    String?
+  type           JobType     @default(CRON)
+  cronExpression String?
+  payload        Json        @default("{}")
+  queueName      String      @default("default")
+  status         JobStatus   @default(ACTIVE)
+
+  retryLimit     Int         @default(3)
+  backoffType    BackoffType @default(EXPONENTIAL)
+  backoffDelayMs Int         @default(5000)
+  timeoutMs      Int         @default(60000)
+
+  nextRunAt      DateTime?
+  lastRunAt      DateTime?
+
+  ownerId        String
+  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  runs           JobRun[]
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([nextRunAt])
+  @@map("jobs")
+}
+
+model JobRun {
+  id          String       @id @default(uuid())
+  jobId       String
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  bullJobId   String?
+  status      JobRunStatus @default(PENDING)
+  attempt     Int          @default(1)
+
+  result      Json?
+  error       String?
+
+  startedAt   DateTime?
+  finishedAt  DateTime?
+
+  createdAt   DateTime     @default(now())
+
+  @@index([jobId])
+  @@index([status])
+  @@index([bullJobId])
+  @@map("job_runs")
+}
