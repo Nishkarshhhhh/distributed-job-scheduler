@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import { ApiError } from "../../utils/apiError";
 import { CreateJobInput, UpdateJobInput, ListJobsQuery } from "./jobs.validation";
 import { enqueueJob, cancelBullJob } from "../../queue/queue.producer";
-import { ensureWorkerForQueue } from "../../queue/queue.manager";
+import { abortRunningExecution } from "../../queue/queue.worker";
 import { Role } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { getNextCronRun } from "../../utils/cron";
@@ -41,6 +41,7 @@ export async function createJob(input: CreateJobInput, ownerId: string) {
       name: input.name,
       description: input.description,
       type: input.type,
+      executionType: input.executionType ?? "HTTP",
       cronExpression: input.cronExpression,
       payload: input.payload as Prisma.InputJsonValue,
       queueName: input.queueName,
@@ -52,8 +53,6 @@ export async function createJob(input: CreateJobInput, ownerId: string) {
       nextRunAt,
     },
   });
-
-  ensureWorkerForQueue(job.queueName);
 
   if (job.type === "ONE_TIME") {
     const delayMs = job.nextRunAt ? Math.max(0, job.nextRunAt.getTime() - Date.now()) : 0;
@@ -130,7 +129,6 @@ export async function triggerJobNow(jobId: string, user: RequestingUser) {
     throw ApiError.badRequest("Only ACTIVE jobs can be triggered manually");
   }
 
-  ensureWorkerForQueue(job.queueName);
   const { jobRun } = await enqueueJob(job);
   return jobRun;
 }
@@ -166,11 +164,16 @@ export async function cancelLatestRun(jobId: string, user: RequestingUser) {
     throw ApiError.notFound("No active run to cancel");
   }
 
+  // 1. Abort locally if running on this instance
+  abortRunningExecution(latestRun.id);
+
+  // 2. Cancel in BullMQ
   let bullJobCancelled = false;
   if (latestRun.bullJobId) {
     bullJobCancelled = await cancelBullJob(job.queueName, latestRun.bullJobId);
   }
 
+  // 3. Update database state
   const updatedRun = await prisma.jobRun.update({
     where: { id: latestRun.id },
     data: {

@@ -22,6 +22,7 @@ export async function enqueueJob(job: PrismaJob, opts?: { delayMs?: number }) {
   const payload: ExecuteJobPayload = {
     jobId: job.id,
     jobRunId: jobRun.id,
+    executionType: job.executionType,
     payload: (job.payload as Record<string, unknown>) ?? {},
   };
 

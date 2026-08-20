@@ -18,6 +18,10 @@ enum JobType {
   ONE_TIME
 }
 
+enum JobExecutionType {
+  HTTP
+}
+
 enum JobStatus {
   ACTIVE
   PAUSED
@@ -54,30 +58,31 @@ model User {
 }
 
 model Job {
-  id             String      @id @default(uuid())
+  id             String           @id @default(uuid())
   name           String
   description    String?
-  type           JobType     @default(CRON)
+  type           JobType          @default(CRON)
+  executionType  JobExecutionType @default(HTTP)
   cronExpression String?
-  payload        Json        @default("{}")
-  queueName      String      @default("default")
-  status         JobStatus   @default(ACTIVE)
+  payload        Json             @default("{}")
+  queueName      String           @default("default")
+  status         JobStatus        @default(ACTIVE)
 
-  retryLimit     Int         @default(3)
-  backoffType    BackoffType @default(EXPONENTIAL)
-  backoffDelayMs Int         @default(5000)
-  timeoutMs      Int         @default(60000)
+  retryLimit     Int              @default(3)
+  backoffType    BackoffType      @default(EXPONENTIAL)
+  backoffDelayMs Int              @default(5000)
+  timeoutMs      Int              @default(60000)
 
   nextRunAt      DateTime?
   lastRunAt      DateTime?
 
   ownerId        String
-  owner          User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner          User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   runs           JobRun[]
 
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([ownerId])
   @@index([status])
@@ -94,6 +99,8 @@ model JobRun {
   status      JobRunStatus @default(PENDING)
   attempt     Int          @default(1)
 
+  httpStatus  Int?
+  durationMs  Int?
   result      Json?
   error       String?
 

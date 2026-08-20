@@ -66,7 +66,6 @@ describe("jobs.service", () => {
       );
 
       expect(job.id).toBe("job-1");
-      expect(queueManager.ensureWorkerForQueue).toHaveBeenCalledWith("default");
       expect(queueProducer.enqueueJob).not.toHaveBeenCalled();
     });
 

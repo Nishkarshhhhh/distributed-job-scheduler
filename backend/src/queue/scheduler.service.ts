@@ -1,7 +1,6 @@
 import { prisma } from "../config/prisma";
 import { logger } from "../config/logger";
 import { enqueueJob } from "./queue.producer";
-import { ensureWorkerForQueue } from "./queue.manager";
 import { getNextCronRun } from "../utils/cron";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -37,7 +36,6 @@ async function pollDueJobs(): Promise<void> {
         continue;
       }
 
-      ensureWorkerForQueue(job.queueName);
       await enqueueJob(job);
 
       logger.info(

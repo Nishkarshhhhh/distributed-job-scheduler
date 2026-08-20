@@ -12,6 +12,11 @@ const envSchema = z.object({
   REDIS_PASSWORD: z.string().optional(),
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
   JWT_EXPIRES_IN: z.string().default("1d"),
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).default(5),
+  ALLOW_INTERNAL_NETWORK_REQUESTS: z
+    .string()
+    .optional()
+    .transform((val) => val === "true"),
 });
 
 const parsed = envSchema.safeParse(process.env);

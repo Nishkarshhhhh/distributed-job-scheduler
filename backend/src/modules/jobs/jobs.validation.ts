@@ -7,12 +7,21 @@ const cronValidation = z
     message: "Invalid cron expression",
   });
 
+export const httpPayloadSchema = z.object({
+  url: z.string().url("Invalid URL format").optional(),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
+  headers: z.record(z.string()).optional(),
+  body: z.unknown().optional(),
+  timeoutMs: z.number().int().min(1000).max(300_000).optional(),
+});
+
 export const createJobSchema = z.object({
   body: z
     .object({
       name: z.string().min(2).max(150),
       description: z.string().max(1000).optional(),
       type: z.enum(["CRON", "ONE_TIME"]),
+      executionType: z.enum(["HTTP"]).default("HTTP"),
       cronExpression: cronValidation.optional(),
       payload: z.record(z.unknown()).default({}),
       queueName: z.string().min(1).max(100).default("default"),
@@ -33,6 +42,7 @@ export const updateJobSchema = z.object({
     .object({
       name: z.string().min(2).max(150).optional(),
       description: z.string().max(1000).optional(),
+      executionType: z.enum(["HTTP"]).optional(),
       cronExpression: cronValidation.optional(),
       payload: z.record(z.unknown()).optional(),
       queueName: z.string().min(1).max(100).optional(),
