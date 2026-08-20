@@ -1,6 +1,10 @@
 # ==============================================================================
 # Render Blueprint - Distributed Job Scheduler
-# Region: Singapore (singapore)
+# Architecture (Embedded Free Mode):
+#   - PostgreSQL Database (Free tier)
+#   - Render Key Value / Redis (Free tier)
+#   - Backend REST API with Embedded BullMQ Worker (Free Web Service)
+#   - React Frontend Dashboard (Free Static Site)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -25,7 +29,7 @@ services:
     ipAllowList: [] # Internal connections only
 
   # ----------------------------------------------------------------------------
-  # 2. Backend REST API Service
+  # 2. Backend REST API Service + Embedded BullMQ Worker
   # ----------------------------------------------------------------------------
   - type: web
     name: distributed-job-scheduler-api
@@ -40,6 +44,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: WORKER_MODE
+        value: embedded
       - key: DATABASE_URL
         fromDatabase:
           name: distributed-job-scheduler-db
@@ -59,43 +65,7 @@ services:
         value: "false"
 
   # ----------------------------------------------------------------------------
-  # 3. Distributed BullMQ Background Worker
-  # ----------------------------------------------------------------------------
-  - type: worker
-    name: distributed-job-scheduler-worker
-    runtime: docker
-    region: singapore
-    plan: starter # Background workers require Starter plan on Render
-    rootDir: ./backend
-    dockerfilePath: ./Dockerfile.prod
-    dockerCommand: node dist/worker.js
-    autoDeploy: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: distributed-job-scheduler-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: distributed-job-scheduler-redis
-          property: connectionString
-      - key: JWT_SECRET
-        fromService:
-          type: web
-          name: distributed-job-scheduler-api
-          envVarKey: JWT_SECRET
-      - key: JWT_EXPIRES_IN
-        value: 1d
-      - key: WORKER_CONCURRENCY
-        value: 10
-      - key: ALLOW_INTERNAL_NETWORK_REQUESTS
-        value: "false"
-
-  # ----------------------------------------------------------------------------
-  # 4. React Frontend Dashboard
+  # 3. React Frontend Dashboard
   # ----------------------------------------------------------------------------
   - type: web
     name: job-scheduler-frontend
@@ -111,4 +81,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://distributed-job-scheduler-api.onrender.com/api
+        sync: false
